@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import boto3
 from pprint import pprint
 from aws.mutable.port import Port
@@ -14,7 +15,7 @@ class LightSail:
         )
         self.client = session.client("lightsail")
 
-    def ListServers(self) -> list[Server]:
+    def list_servers(self) -> list[Server]:
         result: list[Server] = []
 
         response = self.client.get_instances()
@@ -49,6 +50,13 @@ class LightSail:
 
         return result
 
-    def ListAlerts(self):
+    def list_alerts(self):
         response = self.client.get_alarms()
         pprint(response)
+
+    def get_ssh_key(self):
+        path = Path(__file__)
+        print("--->", path.as_posix())
+
+    def run_command(self, command: str) -> list[str]:
+        ssh_key = self.get_ssh_key()

@@ -10,19 +10,20 @@ class MenuItem:
 
 class Menu:
     @classmethod
-    def displayMenu(cls) -> list[MenuItem]:
+    def display_menu(cls) -> list[MenuItem]:
         menus = [
             MenuItem("Exit", exit),
-            MenuItem("List servers", cls.ShowServers),
-            MenuItem("List alerts", cls.ShowAlerts),
+            MenuItem("List servers", cls.show_servers),
+            MenuItem("List alerts", cls.show_alerts),
+            MenuItem("Run command on servers", cls.run_command),
         ]
         for idx, menu in enumerate(menus):
             print(f"{idx:02d} - {menu.Label}")
         return menus
 
     @classmethod
-    def WaitForCommand(cls):
-        menus = cls.displayMenu()
+    def wait_for_command(cls):
+        menus = cls.display_menu()
         while True:
             try:
                 selected = int(input())
@@ -38,8 +39,8 @@ class Menu:
                 print(">>>>", e)
 
     @classmethod
-    def ShowServers(cls):
-        for server in LightSail().ListServers():
+    def show_servers(cls):
+        for server in LightSail().list_servers():
             print(f"------")
             print(f" {server.Name} ({str(server.Cpu)} CPU, {str(server.MemoryGb)} Gb)")
             print(f" IPs: {server.ExternalIP: >16} ({server.InternalIP})")
@@ -49,9 +50,15 @@ class Menu:
         # print("--->", LightSail().ListServers())
 
     @classmethod
-    def ShowAlerts(cls):
+    def show_alerts(cls):
         print(">>>>", "ShowAlerts")
-        LightSail().ListAlerts()
+        LightSail().list_alerts()
+
+    @classmethod
+    def run_command(cls):
+        print(">>>>", "RunCommand")
+        LightSail().run_command("whoami")
 
 
-Menu.WaitForCommand()
+if __name__ == "__main__":
+    Menu.wait_for_command()

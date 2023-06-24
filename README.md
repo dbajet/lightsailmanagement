@@ -22,7 +22,7 @@ Create the necessary `.gitignore`
 ```
 echo ".gitignore" >> .gitignore
 echo "env_lightsailmanagement/*" >> .gitignore
-echo "aws_account.json >> .gitignore
+echo "*__pycache__*" >> .gitignore
 
 ```
 
