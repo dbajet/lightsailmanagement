@@ -60,3 +60,4 @@ class LightSail:
 
     def run_command(self, command: str) -> list[str]:
         ssh_key = self.get_ssh_key()
+        return []

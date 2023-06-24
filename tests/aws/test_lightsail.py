@@ -7,7 +7,7 @@ from aws.lightsail import LightSail
 def test_run_command(get_ssh_key):
     tested = LightSail()
     #
-    calls: List = []
+    calls: list = []
     assert calls == get_ssh_key.mock_calls
     #
     calls = [mock.call()]

@@ -1,11 +1,12 @@
 from dataclasses import dataclass
+from typing import Callable
 from aws.lightsail import LightSail
 
 
 @dataclass
 class MenuItem:
     Label: str
-    Method: callable
+    Method: Callable
 
 
 class Menu:
