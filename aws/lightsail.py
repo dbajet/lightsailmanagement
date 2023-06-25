@@ -1,16 +1,19 @@
-import os
-from pathlib import Path
-import boto3
-from pprint import pprint
+from aws.immutable.ssh_command_response import SshCommandResponse
 from aws.mutable.port import Port
 from aws.mutable.server import Server
+from boto3 import Session
+from multiprocessing import Queue
+from os import getenv
+from pathlib import Path
+from pprint import pprint
+from subprocess import check_output
 
 
 class LightSail:
     def __init__(self) -> None:
-        session = boto3.Session(
-            aws_access_key_id=os.getenv("LIGHTSAIL_ACCOUNT"),
-            aws_secret_access_key=os.getenv("LIGHTSAIL_SECRET"),
+        session = Session(
+            aws_access_key_id=getenv("LIGHTSAIL_ACCOUNT"),
+            aws_secret_access_key=getenv("LIGHTSAIL_SECRET"),
             region_name="us-west-2",
         )
         self.client = session.client("lightsail")
@@ -33,14 +36,14 @@ class LightSail:
                     )
                 result.append(
                     Server(
-                        Name=instance["name"],
-                        Tags=sorted(instance["tags"], key=lambda x: x["key"]),
-                        InternalIP=instance["privateIpAddress"],
-                        ExternalIP=instance["publicIpAddress"],
-                        Firewall=ports,
-                        State=instance["state"]["name"],
-                        Cpu=instance["hardware"]["cpuCount"],
-                        MemoryGb=instance["hardware"]["ramSizeInGb"],
+                        name=instance["name"],
+                        tags=sorted(instance["tags"], key=lambda x: x["key"]),
+                        internal_ip=instance["privateIpAddress"],
+                        external_ip=instance["publicIpAddress"],
+                        firewall=ports,
+                        state=instance["state"]["name"],
+                        cpu=instance["hardware"]["cpuCount"],
+                        memory_gb=instance["hardware"]["ramSizeInGb"],
                     )
                 )
 
@@ -54,10 +57,20 @@ class LightSail:
         response = self.client.get_alarms()
         pprint(response)
 
-    def get_ssh_key(self):
-        path = Path(__file__)
-        print("--->", path.as_posix())
+    def get_ssh_key(self) -> str:
+        key_file = Path(f"{Path(__file__).parent}/aws_private_key.txt")
+        if key_file.exists() is False:
+            response = self.client.download_default_key_pair()
+            # with open(key_file, "w") as f:
+            #     f.write(response["privateKeyBase64"])
+            key_file.write_text(response["privateKeyBase64"])
+            key_file.chmod(0o600)
+        return key_file.as_posix()
 
-    def run_command(self, command: str) -> list[str]:
+    def run_command(self, queue: Queue, public_ip: str, command: str) -> SshCommandResponse:
         ssh_key = self.get_ssh_key()
-        return []
+        ssh_command = f'ssh -i {ssh_key} -o StrictHostKeyChecking=no ubuntu@{public_ip}  "{command}" '
+        output = check_output(ssh_command, shell=True)
+        result = SshCommandResponse(server=public_ip, response=output.decode("utf-8").split("\n"))
+        queue.put(result)
+        return result

@@ -20,9 +20,13 @@ cd lightsailmanagement
 
 Create the necessary `.gitignore`
 ```
-echo ".gitignore" >> .gitignore
+echo ".gitignore" > .gitignore
 echo "env_lightsailmanagement/*" >> .gitignore
 echo "*__pycache__*" >> .gitignore
+echo "*pytest_cache*" >> .gitignore
+echo ".coverage" >> .gitignore
+echo "pytest.log" >> .gitignore
+echo "aws_private_key.txt" >> .gitignore
 
 ```
 
