@@ -1,3 +1,5 @@
+import argparse
+from aws.immutable.ssh_command_response import SshCommandResponse
 from aws.lightsail import LightSail
 from dataclasses import dataclass
 from multiprocessing import Process, Queue
@@ -13,6 +15,24 @@ class MenuItem:
 
 
 class Menu:
+    @classmethod
+    def run(cls):
+        parser = argparse.ArgumentParser(description="My Command-Line Tool")
+        parser.add_argument("what", help="the command to run", choices=["servers", "alerts", "command"])
+        parser.add_argument("--command", help="the command to run on each server", default="hostname")
+        parser.add_argument("--tag", help="the tag to identify the servers (provided as key:value)", default="")
+
+        args = parser.parse_args()
+        if args.what == "servers":
+            tag_key, tag_value, *_ = (args.tag + ":").split(":")
+            cls.show_servers(tag_key, tag_value)
+        elif args.what == "command":
+            tag_key, tag_value, *_ = (args.tag + ":").split(":")
+            cls.run_command(tag_key, tag_value, args.command)
+        elif args.what == "alerts":
+            tag_key, tag_value, *_ = (args.tag + ":").split(":")
+            cls.show_alerts(tag_key, tag_value)
+
     @classmethod
     def display_menu(cls) -> list[MenuItem]:
         menus = [
@@ -43,8 +63,8 @@ class Menu:
                 print(">>>>", e)
 
     @classmethod
-    def show_servers(cls):
-        for server in LightSail().list_servers():
+    def show_servers(cls, tag: str, value: str):
+        for server in LightSail().list_servers(tag, value):
             print(f"------")
             print(f" {server.name} ({str(server.cpu)} CPU, {str(server.memory_gb)} Gb)")
             print(f" IPs: {server.external_ip: >16} ({server.internal_ip})")
@@ -52,33 +72,38 @@ class Menu:
             print(f" {', '.join(tags)}")
 
     @classmethod
-    def show_alerts(cls):
-        print(">>>>", "ShowAlerts")
-        LightSail().list_alerts()
+    def show_alerts(cls, tag: str, value: str):
+        LightSail().list_alerts(tag, value)
 
     @classmethod
-    def run_command(cls, command: str = ""):
+    def run_command(cls, tag: str, value: str, command: str):
         if not command:
             command = input("Type the command:")
         if command:
             queue: Queue = Queue()
             processes = [
-                Process(target=LightSail().run_command, args=[queue, server.external_ip, command])
-                for server in LightSail().list_servers()
+                Process(target=LightSail().run_command, args=[queue, server.name, server.external_ip, command])
+                for server in LightSail().list_servers(tag, value)
             ]
             for process in processes:
                 process.start()
 
             while any([process.is_alive() for process in processes]):
                 while not queue.empty():
-                    print(queue.get())
+                    cls.print_response(queue.get())
                 sleep(0.1)
             while not queue.empty():
-                print(queue.get())
+                cls.print_response(queue.get())
+
+    @classmethod
+    def print_response(cls, response: SshCommandResponse):
+        print(f"--- {response.server} ---")
+        print("\n".join(response.response))
 
 
 if __name__ == "__main__":
-    # Menu.wait_for_command()
-    start = monotonic()
-    Menu.run_command("hostname")
-    print(f"Time: {monotonic()-start:1.2f}s")
+    Menu.run()
+    # # Menu.wait_for_command()
+    # start = monotonic()
+    # Menu.run_command("hostname")
+    # print(f"Time: {monotonic()-start:1.2f}s")

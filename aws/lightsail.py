@@ -18,12 +18,15 @@ class LightSail:
         )
         self.client = session.client("lightsail")
 
-    def list_servers(self) -> list[Server]:
+    def list_servers(self, tag_key: str, tag_value: str) -> list[Server]:
         result: list[Server] = []
 
         response = self.client.get_instances()
         while True:
             for instance in response["instances"]:
+                if tag_key and {"key": tag_key, "value": tag_value} not in instance["tags"]:
+                    continue
+
                 ports: list[Port] = []
                 for port in instance["networking"]["ports"]:
                     ports.append(
@@ -53,7 +56,7 @@ class LightSail:
 
         return result
 
-    def list_alerts(self):
+    def list_alerts(self, tag_key: str, tag_value: str):
         response = self.client.get_alarms()
         pprint(response)
 
@@ -67,10 +70,10 @@ class LightSail:
             key_file.chmod(0o600)
         return key_file.as_posix()
 
-    def run_command(self, queue: Queue, public_ip: str, command: str) -> SshCommandResponse:
+    def run_command(self, queue: Queue, server: str, public_ip: str, command: str) -> SshCommandResponse:
         ssh_key = self.get_ssh_key()
         ssh_command = f'ssh -i {ssh_key} -o StrictHostKeyChecking=no ubuntu@{public_ip}  "{command}" '
         output = check_output(ssh_command, shell=True)
-        result = SshCommandResponse(server=public_ip, response=output.decode("utf-8").split("\n"))
+        result = SshCommandResponse(server=f"{server} ({public_ip})", response=output.decode("utf-8").split("\n"))
         queue.put(result)
         return result
