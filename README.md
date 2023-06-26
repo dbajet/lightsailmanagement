@@ -45,8 +45,23 @@ export LIGHTSAIL_SECRET="..."
 And reload it with: `source ~/.bashrc`
 
 
+### Few commands to consider
+
 Activate the environment 
 ```
 source ./env_lightsailmanagement/bin/activate
 ```
 
+Run the test, type checks
+```
+./run_pytest.sh 
+./run_mypy.sh 
+```
+
+Run the app
+```
+./run_app.sh servers
+./run_app.sh servers --tag "server:web"
+./run_app.sh command --tag "server:web" --command "uname -a"
+./run_app.sh alerts --tag ""
+```

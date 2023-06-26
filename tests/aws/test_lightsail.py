@@ -11,7 +11,7 @@ def test_run_command(get_ssh_key, check_output):
     get_ssh_key.return_value = "theKeyFile"
     check_output.return_value = b"line1\nline2\nline3"
 
-    tested = LightSail()
+    tested = LightSail("region")
     #
     calls: list = []
     assert calls == get_ssh_key.mock_calls

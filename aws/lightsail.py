@@ -1,3 +1,4 @@
+from aws.immutable.alarm_response import AlarmResponse
 from aws.immutable.ssh_command_response import SshCommandResponse
 from aws.mutable.port import Port
 from aws.mutable.server import Server
@@ -10,11 +11,11 @@ from subprocess import check_output
 
 
 class LightSail:
-    def __init__(self) -> None:
+    def __init__(self, region: str) -> None:
         session = Session(
             aws_access_key_id=getenv("LIGHTSAIL_ACCOUNT"),
             aws_secret_access_key=getenv("LIGHTSAIL_SECRET"),
-            region_name="us-west-2",
+            region_name=region,
         )
         self.client = session.client("lightsail")
 
@@ -56,9 +57,29 @@ class LightSail:
 
         return result
 
-    def list_alerts(self, tag_key: str, tag_value: str):
+    def list_alerts(self, servers: list[str]) -> list[AlarmResponse]:
+        result: list[AlarmResponse] = []
         response = self.client.get_alarms()
-        pprint(response)
+        while True:
+            for alarm in response["alarms"]:
+                server = alarm["monitoredResourceInfo"]["name"]
+                if server not in servers:
+                    continue
+                result.append(
+                    AlarmResponse(
+                        server=server,
+                        metric=alarm["metricName"],
+                        period=alarm["period"],
+                        statistic=alarm["statistic"],
+                        threshold=alarm["threshold"],
+                        unit=alarm["unit"],
+                        state=alarm["state"],
+                    )
+                )
+            if "nextPageToken" not in response:
+                break
+            response = self.client.get_alarms(pageToken=response["nextPageToken"])
+        return result
 
     def get_ssh_key(self) -> str:
         key_file = Path(f"{Path(__file__).parent}/aws_private_key.txt")
