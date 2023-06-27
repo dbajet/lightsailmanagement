@@ -1,13 +1,14 @@
 from __future__ import annotations
+
 import argparse
-from aws.immutable.request_parameter import RequestParameter
-from aws.immutable.ssh_command_response import SshCommandResponse
-from aws.lightsail import LightSail
-from dataclasses import dataclass
+import json
 from multiprocessing import Process, Queue
-from pprint import pprint
+from pathlib import Path
 from time import monotonic, sleep
-from typing import Callable
+
+from aws.immutable.request_parameter import RequestParameter
+from aws.lightsail import LightSail
+from aws.mutable.port import Port
 
 
 class Menu:
@@ -19,6 +20,7 @@ class Menu:
         commands = {
             "servers": instance.show_servers,
             "firewall": instance.show_firewall_rules,
+            "setFirewall": instance.set_firewall_rules,
             "alerts": instance.show_alerts,
             "command": instance.run_command,
         }
@@ -38,7 +40,8 @@ class Menu:
             print(f"------")
             print(f" {server.name} ({str(server.cpu)} CPU, {str(server.memory_gb)} Gb)")
             print(f" IPs: {server.external_ip: >16} ({server.internal_ip})")
-            tags = [f"{tag['key']}: {tag['value']}" for tag in server.tags]
+            tags = [f"{tag['key']}: {tag.get('value', '')}" for tag in server.tags if "value" in tag]
+            tags += [f"{tag['key']}" for tag in server.tags if "value" not in tag]
             print(f" {', '.join(tags)}")
 
     def show_firewall_rules(self, request: RequestParameter):
@@ -51,6 +54,40 @@ class Menu:
                     rules = "open"
                 print(f" port: {rule.ToPort: >6} ({rule.Protocol}) {rules}")
 
+    def set_firewall_rules(self, request: RequestParameter):
+        rules = self.read_firewall_rules()
+        for server in self.light_sail.list_servers(request.tag_key, request.tag_value):
+            fw_rules: list[Port] = rules.get("ALL", [])
+            for tag in server.tags:
+                key = tag["key"]
+                if "value" in tag:
+                    key = f"{tag['key']}:{tag['value']}"
+                fw_rules.extend(rules.get(key, []))
+            self.light_sail.set_rules(server.name, fw_rules)
+        #
+        self.show_firewall_rules(request)
+
+    @classmethod
+    def read_firewall_rules(cls) -> dict[str, list[Port]]:
+        result: dict[str, list[Port]] = {}
+        fw_file = Path(f"{Path(__file__).parent}/secrets/aws_firewall_rules.json")
+        if fw_file.exists() is True:
+            rules = json.loads(fw_file.read_text())
+            for rule in rules:
+                key = rule["tagKey"] or "ALL"
+                if rule["tagValue"]:
+                    key = f"{rule['tagKey']}:{rule['tagValue']}"
+                if key not in result:
+                    result[key] = []
+
+                result[key].append(Port(
+                    FromPort=rule["fromPort"],
+                    ToPort=rule["toPort"],
+                    Protocol=rule["protocol"],
+                    Cidrs=rule["cidrs"],
+                ))
+        return result
+
     def show_alerts(self, request: RequestParameter):
         servers = [server.name for server in self.light_sail.list_servers(request.tag_key, request.tag_value)]
         print("Servers:", ", ".join(servers))
@@ -61,13 +98,14 @@ class Menu:
                 print(f" Every: {alert.period}s, check {alert.statistic} is under {alert.threshold} {alert.unit}")
 
     def run_command(self, request: RequestParameter):
+        command = request.command
         if not request.command:
             command = input("Type the command:")
-        if request.command:
+        if command:
             queue: Queue = Queue()
             processes = [
                 Process(
-                    target=self.light_sail.run_command, args=[queue, server.name, server.external_ip, request.command]
+                    target=self.light_sail.run_command, args=[queue, server.name, server.external_ip, command]
                 )
                 for server in self.light_sail.list_servers(request.tag_key, request.tag_value)
             ]
@@ -92,4 +130,4 @@ if __name__ == "__main__":
     start = monotonic()
     Menu.run(Menu(LightSail("us-west-2")))
     # Menu.run(Menu(LightSail("eu-west-3")))
-    print(f"Time: {monotonic()-start:1.2f}s")
+    print(f"Time: {monotonic() - start:1.2f}s")

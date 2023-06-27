@@ -8,3 +8,11 @@ class Port:
     ToPort: int
     Protocol: str
     Cidrs: list[str]
+
+    def to_json(self) -> dict:
+        return {
+            'fromPort': self.FromPort,
+            'toPort': self.ToPort,
+            'protocol': self.Protocol,
+            'cidrs': self.Cidrs,
+        }

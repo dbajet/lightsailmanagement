@@ -1,8 +1,30 @@
 from multiprocessing import Queue
 from time import sleep
-from unittest.mock import patch, call
+from unittest.mock import patch, call, Mock
+
 from aws.immutable.ssh_command_response import SshCommandResponse
 from aws.lightsail import LightSail
+
+
+@patch("aws.lightsail.Session")
+@patch("aws.lightsail.getenv")
+def test___init__(getenv, session):
+    mock = Mock()
+    session.return_value.client.return_value = mock
+    getenv.side_effect = ['firstCall', 'secondCall']
+
+    tested = LightSail("theRegion")
+    assert mock == tested.client
+    calls = [
+        call(aws_access_key_id='firstCall', aws_secret_access_key='secondCall', region_name='theRegion'),
+        call().client('lightsail'),
+    ]
+    assert calls == session.mock_calls
+    calls = [
+        call('LIGHTSAIL_ACCOUNT'),
+        call('LIGHTSAIL_SECRET'),
+    ]
+    assert calls == getenv.mock_calls
 
 
 @patch("aws.lightsail.check_output")

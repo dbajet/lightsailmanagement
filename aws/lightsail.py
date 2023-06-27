@@ -1,13 +1,14 @@
+from multiprocessing import Queue
+from os import getenv
+from pathlib import Path
+from subprocess import check_output
+
+from boto3 import Session
+
 from aws.immutable.alarm_response import AlarmResponse
 from aws.immutable.ssh_command_response import SshCommandResponse
 from aws.mutable.port import Port
 from aws.mutable.server import Server
-from boto3 import Session
-from multiprocessing import Queue
-from os import getenv
-from pathlib import Path
-from pprint import pprint
-from subprocess import check_output
 
 
 class LightSail:
@@ -82,7 +83,7 @@ class LightSail:
         return result
 
     def get_ssh_key(self) -> str:
-        key_file = Path(f"{Path(__file__).parent}/aws_private_key.txt")
+        key_file = Path(f"{Path(__file__).parent.parent}/secrets/aws_private_key.txt")
         if key_file.exists() is False:
             response = self.client.download_default_key_pair()
             # with open(key_file, "w") as f:
@@ -98,3 +99,12 @@ class LightSail:
         result = SshCommandResponse(server=f"{server} ({public_ip})", response=output.decode("utf-8").split("\n"))
         queue.put(result)
         return result
+
+    def set_rules(self, server: str, rules: list[Port]):
+        json_rules: list[dict] = []
+        for rule in rules:
+            json_rule = rule.to_json()
+            if rule.ToPort == 22:
+                json_rule |= {"cidrListAliases": ["lightsail-connect"]}  # always allow the AWS console to access
+            json_rules.append(json_rule)
+        self.client.put_instance_public_ports(instanceName=server, portInfos=json_rules)

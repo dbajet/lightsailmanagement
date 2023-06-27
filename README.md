@@ -21,12 +21,13 @@ cd lightsailmanagement
 Create the necessary `.gitignore`
 ```
 echo ".gitignore" > .gitignore
-echo "env_lightsailmanagement/*" >> .gitignore
 echo "*__pycache__*" >> .gitignore
 echo "*pytest_cache*" >> .gitignore
 echo ".coverage" >> .gitignore
 echo "pytest.log" >> .gitignore
-echo "aws_private_key.txt" >> .gitignore
+echo ".mypy_cache" >> .gitignore
+echo "env_lightsailmanagement/*" >> .gitignore
+echo "secrets/*.*" >> .gitignore
 
 ```
 
@@ -44,6 +45,8 @@ export LIGHTSAIL_SECRET="..."
 ```
 And reload it with: `source ~/.bashrc`
 
+All important and secret files should be placed in the `secrets` directory.
+For example, the AWS private key will be downloaded there.
 
 ### Few commands to consider
 
@@ -64,4 +67,33 @@ Run the app
 ./run_app.sh servers --tag "server:web"
 ./run_app.sh command --tag "server:web" --command "uname -a"
 ./run_app.sh alerts --tag ""
+```
+
+## Set the alarms/alerts
+In order to set alarms, create the `secrets/aws_firewall_rules.json` file like
+```
+[
+  {
+    "comment": "all servers can be SSHed from 1.2.3.4 only",
+    "tagKey": "",
+    "tagValue": "",
+    "fromPort": 22,
+    "toPort": 22,
+    "protocol": "tcp",
+    "cidrs": [
+      "1.2.3.4/32"
+    ]
+  },
+  {
+    "comment": "web servers (defined with a key-only tag webServer)",
+    "tagKey": "webServer",
+    "tagValue": "",
+    "fromPort": 80,
+    "toPort": 80,
+    "protocol": "tcp",
+    "cidrs": [
+      "0.0.0.0/0"
+    ]
+  }
+]
 ```
