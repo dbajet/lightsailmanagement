@@ -7,6 +7,7 @@ from boto3 import Session
 
 from aws.immutable.alarm_response import AlarmResponse
 from aws.immutable.ssh_command_response import SshCommandResponse
+from aws.mutable.alarm_definition import AlarmDefinition
 from aws.mutable.port import Port
 from aws.mutable.server import Server
 
@@ -58,7 +59,7 @@ class LightSail:
 
         return result
 
-    def list_alerts(self, servers: list[str]) -> list[AlarmResponse]:
+    def list_alarms(self, servers: list[str]) -> list[AlarmResponse]:
         result: list[AlarmResponse] = []
         response = self.client.get_alarms()
         while True:
@@ -68,6 +69,7 @@ class LightSail:
                     continue
                 result.append(
                     AlarmResponse(
+                        name=alarm["name"],
                         server=server,
                         metric=alarm["metricName"],
                         period=alarm["period"],
@@ -75,12 +77,40 @@ class LightSail:
                         threshold=alarm["threshold"],
                         unit=alarm["unit"],
                         state=alarm["state"],
+                        datapoints_to_alarm=alarm["datapointsToAlarm"],
+                        evaluation_periods=alarm["evaluationPeriods"],
+                        operator=alarm["comparisonOperator"],
                     )
                 )
             if "nextPageToken" not in response:
                 break
             response = self.client.get_alarms(pageToken=response["nextPageToken"])
         return result
+
+    def set_alarms(self, servers: list[str], alarms: list[AlarmDefinition]):
+        # retrieve the current alarms
+        current: dict[str, str] = {}
+        for alarm_response in self.list_alarms(servers):
+            definition = AlarmDefinition(
+                name=alarm_response.name,
+                server=alarm_response.server,
+                metric=alarm_response.metric,
+                threshold=alarm_response.threshold,
+                evaluation_periods=alarm_response.evaluation_periods,
+                datapoints_to_alarm=alarm_response.datapoints_to_alarm,
+                operator=alarm_response.operator,
+            )
+            current[definition.name] = definition.hashed()
+        # set the alarms (that have changed)
+        for alarm_definition in alarms:
+            if not (alarm_definition.name in current and alarm_definition.hashed() == current[alarm_definition.name]):
+                json_alarm = alarm_definition.to_json()
+                self.client.put_alarm(**json_alarm)
+            if alarm_definition.name in current:
+                del current[alarm_definition.name]
+        # delete the alarms no longer in use
+        for alarm_name in current.keys():
+            self.client.delete_alarm(alarmName=alarm_name)
 
     def get_ssh_key(self) -> str:
         key_file = Path(f"{Path(__file__).parent.parent}/secrets/aws_private_key.txt")

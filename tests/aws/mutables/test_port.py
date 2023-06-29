@@ -1,7 +1,6 @@
-import sys
-
-app_root = "/media/RATIONALAI/code/lightsailmanagement/"
-sys.path.append(app_root)
+# import sys
+# app_root = "/..../lightsailmanagement/"
+# sys.path.append(app_root)
 from aws.mutable.port import Port
 
 
