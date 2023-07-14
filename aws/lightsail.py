@@ -1,7 +1,7 @@
 from multiprocessing import Queue
 from os import getenv
 from pathlib import Path
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError, STDOUT
 
 from boto3 import Session
 
@@ -13,6 +13,7 @@ from aws.mutable.server import Server
 
 
 class LightSail:
+    SSH_PORT = 22
     def __init__(self, region: str) -> None:
         session = Session(
             aws_access_key_id=getenv("LIGHTSAIL_ACCOUNT"),
@@ -125,8 +126,12 @@ class LightSail:
     def run_command(self, queue: Queue, server: str, public_ip: str, command: str) -> SshCommandResponse:
         ssh_key = self.get_ssh_key()
         ssh_command = f'ssh -i {ssh_key} -o StrictHostKeyChecking=no ubuntu@{public_ip}  "{command}" '
-        output = check_output(ssh_command, shell=True)
-        result = SshCommandResponse(server=f"{server} ({public_ip})", response=output.decode("utf-8").split("\n"))
+        try:
+            output = check_output(ssh_command, shell=True, stderr=STDOUT)
+        except CalledProcessError as exc:
+            result = SshCommandResponse(server=f"{server} ({public_ip})", response=exc.stdout.decode("utf-8").split("\n"))
+        else:
+            result = SshCommandResponse(server=f"{server} ({public_ip})", response=output.decode("utf-8").split("\n"))
         queue.put(result)
         return result
 
@@ -134,7 +139,7 @@ class LightSail:
         json_rules: list[dict] = []
         for rule in rules:
             json_rule = rule.to_json()
-            if rule.ToPort == 22:
+            if rule.ToPort == self.SSH_PORT:
                 json_rule |= {"cidrListAliases": ["lightsail-connect"]}  # always allow the AWS console to access
             json_rules.append(json_rule)
         self.client.put_instance_public_ports(instanceName=server, portInfos=json_rules)

@@ -44,7 +44,7 @@ def test_run_command(get_ssh_key, check_output):
     sleep(0.001)  # <-- give the queue the chance to store the response
     calls = [call()]
     assert calls == get_ssh_key.mock_calls
-    calls = [call('ssh -i theKeyFile -o StrictHostKeyChecking=no ubuntu@extIp  "the command" ', shell=True)]
+    calls = [call('ssh -i theKeyFile -o StrictHostKeyChecking=no ubuntu@extIp  "the command" ', shell=True, stderr=-2)]
     assert calls == check_output.mock_calls
     responses: list = []
     while not queue.empty():

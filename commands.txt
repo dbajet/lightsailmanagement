@@ -1,0 +1,5 @@
+./run_app.sh servers
+./run_app.sh command --command "ls -la /var/run/reboot-required"
+./run_app.sh command --command "sudo apt-get update"
+./run_app.sh command --command "sudo apt-get upgrade -y" --tag "rationalAI:IBE"
+

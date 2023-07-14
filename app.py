@@ -145,7 +145,8 @@ class Menu:
         self.print_table(columns, alerts)
         print("Servers:", ", ".join(servers))
 
-    def print_table(self, columns: list[PrintColumn], lines: list):
+    @classmethod
+    def print_table(cls, columns: list[PrintColumn], lines: list):
         col_sizes: dict[str, int] = {c.label: max(c.size, len(c.label)) for c in columns}
         for line in lines:
             for c in columns:
