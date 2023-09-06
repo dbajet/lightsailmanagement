@@ -38,7 +38,7 @@ class Menu:
 
         args = parser.parse_args()
         tag_key, tag_value, *_ = (args.tag + ":").split(":")
-        request = RequestParameter(tag_key=tag_key, tag_value=tag_value, command=args.command)
+        request = RequestParameter(tag_key=tag_key.strip(), tag_value=tag_value.strip(), command=args.command)
         if args.what in commands:
             commands[args.what](request)
 
