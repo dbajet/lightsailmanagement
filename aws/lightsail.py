@@ -46,7 +46,7 @@ class LightSail:
                         name=instance["name"],
                         tags=sorted(instance["tags"], key=lambda x: x["key"]),
                         internal_ip=instance["privateIpAddress"],
-                        external_ip=instance["publicIpAddress"],
+                        external_ip=instance.get("publicIpAddress") or "",
                         firewall=ports,
                         state=instance["state"]["name"],
                         cpu=instance["hardware"]["cpuCount"],
