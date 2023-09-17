@@ -61,8 +61,9 @@ class Menu:
             PrintColumn(label="server", alignment=PrintColumn.left(), size=32, formatter=lambda x: x.server),
             PrintColumn(label="port", alignment=PrintColumn.right(), size=5, formatter=lambda x: x.port),
             PrintColumn(label="protocol", alignment=PrintColumn.center(), size=5, formatter=lambda x: x.protocol),
-            PrintColumn(label="limited to", alignment=PrintColumn.left(), size=5,
-                        formatter=lambda x: ",".join(x.rules)),
+            PrintColumn(
+                label="limited to", alignment=PrintColumn.left(), size=5, formatter=lambda x: ",".join(x.rules)
+            ),
         ]
         fw_rules: list[FirewallRule] = []
         for server in self.light_sail.list_servers(request.tag_key, request.tag_value):
@@ -70,19 +71,22 @@ class Menu:
                 rules = rule.Cidrs
                 if "0.0.0.0/0" in rule.Cidrs:
                     rules = ["all"]
-                fw_rules.append(FirewallRule(
-                    server=server.name,
-                    port=rule.ToPort,
-                    protocol=rule.Protocol,
-                    rules=rules,
-                ))
+                fw_rules.append(
+                    FirewallRule(
+                        server=server.name,
+                        port=rule.ToPort,
+                        protocol=rule.Protocol,
+                        rules=rules,
+                    )
+                )
         fw_rules.sort(key=lambda x: (x.server, x.port))
         self.print_table(columns, fw_rules)
 
     def set_firewall_rules(self, request: RequestParameter):
         rules = self.read_firewall_rules()
         for server in self.light_sail.list_servers(request.tag_key, request.tag_value):
-            fw_rules: list[Port] = rules.get(self.ALL_SERVER, [])
+            fw_rules: list[Port] = []
+            fw_rules.extend(rules.get(self.ALL_SERVER, []))
             for tag in server.tags:
                 key = tag["key"]
                 if "value" in tag:
@@ -105,12 +109,14 @@ class Menu:
                 if key not in result:
                     result[key] = []
 
-                result[key].append(Port(
-                    FromPort=rule["fromPort"],
-                    ToPort=rule["toPort"],
-                    Protocol=rule["protocol"],
-                    Cidrs=rule["cidrs"],
-                ))
+                result[key].append(
+                    Port(
+                        FromPort=rule["fromPort"],
+                        ToPort=rule["toPort"],
+                        Protocol=rule["protocol"],
+                        Cidrs=rule["cidrs"],
+                    )
+                )
         return result
 
     def show_alerts(self, request: RequestParameter):
@@ -124,19 +130,37 @@ class Menu:
         }
         columns = [
             PrintColumn(label="server", alignment=PrintColumn.left(), size=32, formatter=lambda x: x.server),
-            PrintColumn(label="metric", alignment=PrintColumn.right(), size=32,
-                        formatter=lambda x: metric_label.get(x.metric, x.metric)),
-            PrintColumn(label="state", alignment=PrintColumn.center(), size=6,
-                        formatter=lambda x: "" if x.state == "OK" else "!!"),
-            PrintColumn(label="operator", alignment=PrintColumn.center(), size=3,
-                        formatter=lambda x: ">" if x.operator.startswith("Greater") else "<"),
+            PrintColumn(
+                label="metric",
+                alignment=PrintColumn.right(),
+                size=32,
+                formatter=lambda x: metric_label.get(x.metric, x.metric),
+            ),
+            PrintColumn(
+                label="state",
+                alignment=PrintColumn.center(),
+                size=6,
+                formatter=lambda x: "" if x.state == "OK" else "!!",
+            ),
+            PrintColumn(
+                label="operator",
+                alignment=PrintColumn.center(),
+                size=3,
+                formatter=lambda x: ">" if x.operator.startswith("Greater") else "<",
+            ),
             PrintColumn(label="threshold", alignment=PrintColumn.right(), size=5, formatter=lambda x: x.threshold),
-            PrintColumn(label="unit", alignment=PrintColumn.center(), size=3,
-                        formatter=lambda x: unit_label.get(x.unit, "?")),
-            PrintColumn(label="incidents", alignment=PrintColumn.center(), size=3,
-                        formatter=lambda x: x.datapoints_to_alarm),
-            PrintColumn(label="period (sec.)", alignment=PrintColumn.right(), size=3,
-                        formatter=lambda x: x.period * x.evaluation_periods),
+            PrintColumn(
+                label="unit", alignment=PrintColumn.center(), size=3, formatter=lambda x: unit_label.get(x.unit, "?")
+            ),
+            PrintColumn(
+                label="incidents", alignment=PrintColumn.center(), size=3, formatter=lambda x: x.datapoints_to_alarm
+            ),
+            PrintColumn(
+                label="period (sec.)",
+                alignment=PrintColumn.right(),
+                size=3,
+                formatter=lambda x: x.period * x.evaluation_periods,
+            ),
         ]
         alerts = self.light_sail.list_alarms(servers=servers)
         # alerts.sort(key=lambda x: [x.name, x.metric])
@@ -154,7 +178,7 @@ class Menu:
 
         length = sum(col_sizes.values()) + len(columns) * 3 - 1
         dashed_line = f"+{'-' * length}+"
-        title = ' | '.join([f"{c.label.center(col_sizes[c.label])}" for c in columns])
+        title = " | ".join([f"{c.label.center(col_sizes[c.label])}" for c in columns])
 
         print(dashed_line)
         print(f"| {title} |")
@@ -169,7 +193,7 @@ class Menu:
                 else:  # center
                     text = str(c.formatter(line)).center(col_sizes[c.label])
                 rows.append(text)
-            data = ' | '.join(rows)
+            data = " | ".join(rows)
             print(f"| {data} |")
         print(dashed_line)
 
@@ -192,8 +216,8 @@ class Menu:
             alarms = json.loads(alarms_file.read_text())
 
             tags = [cls.ALL_SERVER]
-            tags += [f"{tag['key']}:{tag['value']}" for tag in server.tags if 'value' in tag]
-            tags += [tag['key'] for tag in server.tags if 'value' not in tag]
+            tags += [f"{tag['key']}:{tag['value']}" for tag in server.tags if "value" in tag]
+            tags += [tag["key"] for tag in server.tags if "value" not in tag]
 
             for alarm in alarms:
                 key = alarm["tagKey"] or cls.ALL_SERVER
@@ -202,15 +226,17 @@ class Menu:
                 if key not in tags:
                     continue
 
-                result.append(AlarmDefinition(
-                    name=f"{server.name}_{alarm['alarmName']}",
-                    server=server.name,
-                    metric=alarm["metricName"],
-                    threshold=alarm["threshold"],
-                    evaluation_periods=alarm["evaluationPeriods"],
-                    datapoints_to_alarm=alarm["datapointsToAlarm"],
-                    operator=alarm["comparisonOperator"]
-                ))
+                result.append(
+                    AlarmDefinition(
+                        name=f"{server.name}_{alarm['alarmName']}",
+                        server=server.name,
+                        metric=alarm["metricName"],
+                        threshold=alarm["threshold"],
+                        evaluation_periods=alarm["evaluationPeriods"],
+                        datapoints_to_alarm=alarm["datapointsToAlarm"],
+                        operator=alarm["comparisonOperator"],
+                    )
+                )
         return result
 
     def run_command(self, request: RequestParameter):
